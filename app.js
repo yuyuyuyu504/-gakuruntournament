@@ -2274,22 +2274,44 @@ constructor() {
     `;
   }
 
-  loadMatches() {
-    const raw = localStorage.getItem('gaku_tournament_matches');
-    if (raw !== null) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {
-        console.error('Failed to parse matches:', e);
-      }
-    }
-    return [];
+async loadMatches() {
+    return this.matches  [];
   }
 
-  saveMatches() {
-    localStorage.setItem('gaku_tournament_matches', JSON.stringify(this.matches));
+  async saveMatches() {
+    try {
+      for (const match of this.matches) {
+        await supabase.from('matches').upsert({
+          id: match.id,
+          data: match
+        });
+      }
+      console.log("Matches saved to Supabase successfully.");
+    } catch (e) {
+      console.error("Failed to save matches to Supabase:", e);
+      localStorage.setItem("gaku_tournament_matches", JSON.stringify(this.matches));
+    }
   }
+
+  loadPlayoffMatches() {
+    return this.playoffMatches  this.generateDefaultPlayoffBracket();
+  }
+
+  async savePlayoffMatches() {
+    try {
+      for (const match of this.playoffMatches) {
+        await supabase.from('playoff_matches').upsert({
+          id: match.id,
+          data: match
+        });
+      }
+      console.log("Playoff matches saved to Supabase successfully.");
+    } catch (e) {
+      console.error("Failed to save playoff matches to Supabase:", e);
+      localStorage.setItem("gaku_playoff_matches", JSON.stringify(this.playoffMatches));
+    }
+  }
+
 
   renderTeams() {
     const grid = document.getElementById("teams-grid");
