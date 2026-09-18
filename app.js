@@ -2307,7 +2307,7 @@ constructor() {
   }
 
 async loadMatches() {
-    return this.matches  [];
+return this.matches || [];
   }
 
   async saveMatches() {
@@ -2326,7 +2326,7 @@ async loadMatches() {
   }
 
   loadPlayoffMatches() {
-    return this.playoffMatches  this.generateDefaultPlayoffBracket();
+    return this.playoffMatches || this.generateDefaultPlayoffBracket();
   }
 
   async savePlayoffMatches() {
