@@ -57,18 +57,50 @@ constructor() {
     try {
       console.log("Loading data from Supabase...");
 
-      // โหลด Teams จาก Supabase
+      // 1. โหลด Teams จาก Supabase
       const { data: teamRows, error: teamErr } = await supabase.from('teams').select('');
       if (!teamErr && teamRows) {
         this.teams = teamRows.map(row => row.data);
       }
 
-      // โหลด Audit Logs จาก Supabase
+      // 2. โหลด Matches จาก Supabase
+      const { data: matchRows, error: matchErr } = await supabase.from('matches').select('');
+      if (!matchErr && matchRows && matchRows.length > 0) {
+        this.matches = matchRows.map(row => row.data);
+      }
+
+      // 3. โหลด Playoff Matches จาก Supabase
+      const { data: playoffRows, error: playoffErr } = await supabase.from('playoff_matches').select('');
+      if (!playoffErr && playoffRows && playoffRows.length > 0) {
+        this.playoffMatches = playoffRows.map(row => row.data);
+      } else {
+        this.playoffMatches = this.generateDefaultPlayoffBracket();
+      }
+
+      // 4. โหลด Audit Logs จาก Supabase
       const { data: logRows, error: logErr } = await supabase.from('audit_logs').select('');
       if (!logErr && logRows && logRows.length > 0) {
         this.auditLogs = logRows.map(row => row.data);
       }
 
+      // เรนเดอร์หน้าจอใหม่หลังจากได้ข้อมูลกลางทั้งหมดแล้ว
+      this.selectedTeam = this.teams[0] || null;
+      try { this.computeRankings(); } catch(e) { console.error('[computeRankings]', e); }
+      try { this.renderTeams(); } catch(e) { console.error('[renderTeams]', e); }
+      try { this.renderRankings(); } catch(e) { console.error('[renderRankings]', e); }
+      try { this.renderMatches(); } catch(e) { console.error('[renderMatches]', e); }
+      try { this.renderPlayers(); } catch(e) { console.error('[renderPlayers]', e); }
+      try { this.renderPlayoffBracket(); } catch(e) { console.error('[renderPlayoffBracket]', e); }
+      try { this.populateMatchControlSelects(); } catch(e) { console.error('[populateMatchControlSelects]', e); }
+      try { this.populateServerCompareSelects(); } catch(e) { console.error('[populateServerCompareSelects]', e); }
+      try { this.renderServerOwnerPortal(); } catch(e) { console.error('[renderServerOwnerPortal]', e); }
+      try { this.renderAuditLogs(); } catch(e) { console.error('[renderAuditLogs]', e); }
+
+      console.log("Supabase data loaded successfully!");
+    } catch (e) {
+      console.error("Error loading from Supabase:", e);
+    }
+  }
       // เรนเดอร์หน้าจอใหม่หลังจากได้ข้อมูลกลางแล้ว
       this.selectedTeam = this.teams[0]  null;
       try { this.computeRankings(); } catch(e) { console.error('[computeRankings]', e); }
