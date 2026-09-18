@@ -6,6 +6,16 @@
   <title>King of Gakuran - 15 vs 15 Tournament</title>
   <meta name="description" content="The ultimate King of Gakuran 15 vs 15 community tournament. Compete. Survive. Become the King.">
   <link rel="stylesheet" href="style.css">
+  <!-- โหลดตัวช่วย Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+  // เชื่อมต่อฐานข้อมูลกลาง
+  const SUPABASE_URL = 'https://qqrajzrsmzssmoxuxsfc.supabase.co/';
+  const SUPABASE_ANON_KEY = 'sb_publishable_Hc-sej3m75aMMBjhZ43U1Q_GGDlN5AN';
+
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+</script>
 </head>
 <body>
 
