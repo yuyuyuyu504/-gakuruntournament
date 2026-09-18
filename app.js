@@ -18,70 +18,11 @@ const DEFAULT_TEAMS = [];
 
 // App State
 class TournamentApp {
-  constructor() {
-    this.teams = this.loadTeams();
-    this.matches = this.loadMatches();
-    this.auditLogs = this.loadAuditLogs();
-    this.playoffMatches = this.loadPlayoffMatches();
-    this.currentServerOwner = this.loadCurrentServerOwner();
-    this.currentFilter = "all";
-    this.searchQuery = "";
-    this.selectedTeam = this.teams[0] || null;
-    this.isReferee = false;
-    this.refereeName = "";
-    this.currentAdminTab = "dashboard";
-    this.mcState = null;
-    this.countdownTimer = null;
-    this.isMatchPaused = false;
-
-    try { this.computeRankings(); } catch(e) { console.error('[computeRankings]', e); }
-    try { this.initRegisterForm(); } catch(e) { console.error('[initRegisterForm]', e); }
-    try { this.bindEvents(); } catch(e) { console.error('[bindEvents]', e); }
-    try { this.renderTeams(); } catch(e) { console.error('[renderTeams]', e); }
-    try { this.renderRankings(); } catch(e) { console.error('[renderRankings]', e); }
-    try { this.renderMatches(); } catch(e) { console.error('[renderMatches]', e); }
-    try { this.renderPlayers(); } catch(e) { console.error('[renderPlayers]', e); }
-    try { this.renderPlayoffBracket(); } catch(e) { console.error('[renderPlayoffBracket]', e); }
-    try { this.populateServerCompareSelects(); } catch(e) { console.error('[populateServerCompareSelects]', e); }
-    try { this.renderServerOwnerPortal(); } catch(e) { console.error('[renderServerOwnerPortal]', e); }
-  }
-
-  loadTeams() {
-    const raw = localStorage.getItem("gaku_tournament_teams");
-    if (raw && (raw.includes("SUZURAN") || raw.includes("Genji") || raw.includes("HOUSEN") || raw.includes("SERVER A"))) {
-      if (!localStorage.getItem("gaku_cleared_all_v3")) {
-        localStorage.removeItem("gaku_tournament_teams");
-      }
-    }
-
-    const saved = localStorage.getItem("gaku_tournament_teams");
-    if (saved !== null) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {
-        console.error("Failed to parse saved teams:", e);
-      }
-    }
-
-    return [];
-  }
-
-  saveTeams() {
-    localStorage.setItem("gaku_tournament_teams", JSON.stringify(this.teams));
-  }
-
-  loadAuditLogs() {
-    const raw = localStorage.getItem("gaku_audit_logs");
-    if (raw !== null) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-      } catch (e) {
-        console.error("Failed to parse audit logs:", e);
-      }
-    }
-    return [
+constructor() {
+    // 1. ค่าเริ่มต้นเป็นค่าว่างก่อน เพื่อรอโหลดจาก Supabase กลาง
+    this.teams = [];
+    this.matches = [];
+    this.auditLogs = [
       {
         id: "log-init-1",
         timestamp: "19:42:00",
@@ -91,10 +32,103 @@ class TournamentApp {
         details: "ระบบ King of Gakuran Tournament พร้อมทำงาน"
       }
     ];
+    this.playoffMatches = [];
+    this.currentServerOwner = null;
+
+    this.currentFilter = "all";
+    this.searchQuery = "";
+    this.selectedTeam = null;
+    this.isReferee = false;
+    this.refereeName = "";
+    this.currentAdminTab = "dashboard";
+    this.mcState = null;
+    this.countdownTimer = null;
+    this.isMatchPaused = false;
+
+    // 2. เรียกโหลดข้อมูลจาก Supabase กลางทันทีที่เปิดเว็บ
+    this.initSupabaseData();
+
+    try { this.bindEvents(); } catch(e) { console.error('[bindEvents]', e); }
+    try { this.initRegisterForm(); } catch(e) { console.error('[initRegisterForm]', e); }
   }
 
-  saveAuditLogs() {
-    localStorage.setItem("gaku_audit_logs", JSON.stringify(this.auditLogs));
+  // ฟังก์ชันดึงข้อมูลทั้งหมดจาก Supabase กลาง
+  async initSupabaseData() {
+    try {
+      console.log("Loading data from Supabase...");
+
+      // โหลด Teams จาก Supabase
+      const { data: teamRows, error: teamErr } = await supabase.from('teams').select('');
+      if (!teamErr && teamRows) {
+        this.teams = teamRows.map(row => row.data);
+      }
+
+      // โหลด Audit Logs จาก Supabase
+      const { data: logRows, error: logErr } = await supabase.from('audit_logs').select('');
+      if (!logErr && logRows && logRows.length > 0) {
+        this.auditLogs = logRows.map(row => row.data);
+      }
+
+      // เรนเดอร์หน้าจอใหม่หลังจากได้ข้อมูลกลางแล้ว
+      this.selectedTeam = this.teams[0]  null;
+      try { this.computeRankings(); } catch(e) { console.error('[computeRankings]', e); }
+      try { this.renderTeams(); } catch(e) { console.error('[renderTeams]', e); }
+      try { this.renderRankings(); } catch(e) { console.error('[renderRankings]', e); }
+      try { this.renderMatches(); } catch(e) { console.error('[renderMatches]', e); }
+      try { this.renderPlayers(); } catch(e) { console.error('[renderPlayers]', e); }
+      try { this.renderPlayoffBracket(); } catch(e) { console.error('[renderPlayoffBracket]', e); }
+      try { this.populateServerCompareSelects(); } catch(e) { console.error('[populateServerCompareSelects]', e); }
+      try { this.renderServerOwnerPortal(); } catch(e) { console.error('[renderServerOwnerPortal]', e); }
+      try { this.renderAuditLogs(); } catch(e) { console.error('[renderAuditLogs]', e); }
+
+      console.log("Supabase data loaded successfully!");
+    } catch (e) {
+      console.error("Error loading from Supabase:", e);
+    }
+  }
+
+  loadTeams() {
+    // ใช้ค่าจากหน่วยความจำกลางที่ซิงค์กับ Supabase แล้ว
+    return this.teams  [];
+  }
+
+  async saveTeams() {
+    // บันทึกทีมทั้งหมดลง Supabase กลาง (รองรับตาราง id + data jsonb)
+    try {
+      for (const team of this.teams) {
+        const teamId = team.id  team.name  team-${Date.now()};
+        await supabase.from('teams').upsert({
+          id: teamId,
+          data: team
+        });
+      }
+      console.log("Teams saved to Supabase successfully.");
+    } catch (e) {
+      console.error("Failed to save teams to Supabase:", e);
+      // สำรองข้อมูลลง localStorage เผื่อเน็ตหลุด
+      localStorage.setItem("gaku_tournament_teams", JSON.stringify(this.teams));
+    }
+  }
+
+  loadAuditLogs() {
+    return this.auditLogs;
+  }
+
+  async saveAuditLogs() {
+    // บันทึก Audit Logs ลง Supabase กลาง
+    try {
+      // บันทึกเฉพาะ Log ล่าสุดหรือทั้งหมดตามต้องการ
+      const latestLog = this.auditLogs[0];
+      if (latestLog) {
+        await supabase.from('audit_logs').upsert({
+          id: latestLog.id || log-${Date.now()},
+          data: latestLog
+        });
+      }
+    } catch (e) {
+      console.error("Failed to save audit logs to Supabase:", e);
+      localStorage.setItem("gaku_audit_logs", JSON.stringify(this.auditLogs));
+    }
   }
 
   addAuditLog(actor, action, details) {
